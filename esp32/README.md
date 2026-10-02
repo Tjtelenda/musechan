@@ -174,6 +174,7 @@ status screen.
 | Seeed SenseCAP Watcher | UI, push-to-talk, settings, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
 | M5Stack StickS3 | UI, push-to-talk, two-button menu, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
 | M5Stack StickC Plus2 | UI, push-to-talk, two-button menu, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
+| M5Stack StackChan | UI, push-to-talk, touch, head servos, pet reactions, images | see [`AGENTS.md`](AGENTS.md#boards-with-the-full-ui-by-hand) |
 
 See [`devices/`](devices) for each board's hardware, features, and where to
 buy one.

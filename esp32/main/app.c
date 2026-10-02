@@ -71,6 +71,10 @@
 #if CONFIG_MUSE_WATCHER_CAMERA
 #include "boards/watcher_camera.h"
 #endif
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+#include "boards/stackchan_head.h"
+#include "boards/stackchan_pet.h"
+#endif
 #if CONFIG_MUSE_ENABLED
 #include "muse_glue.h"
 // Muse joins Wi-Fi from its own settings, before or without pairing.
@@ -1860,6 +1864,41 @@ static cJSON *on_ws_command(
     }
     if (strcmp(command, "display.show_animation") == 0) {
         led_status_show_animation();
+        cJSON *result = cJSON_CreateObject();
+        cJSON_AddBoolToObject(result, "ok", true);
+        return result;
+    }
+#endif
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+    if (strcmp(command, "stackchan.look") == 0) {
+        cJSON *yaw = cJSON_GetObjectItem(params, "yaw");
+        cJSON *pitch = cJSON_GetObjectItem(params, "pitch");
+        if (!cJSON_IsNumber(yaw) || !cJSON_IsNumber(pitch)) {
+            return command_error("missing_param", "yaw and pitch are required");
+        }
+        esp_err_t err = stackchan_head_look(yaw->valueint, pitch->valueint);
+        if (err == ESP_ERR_NOT_FOUND) {
+            return command_error("unavailable", "no StackChan head base found");
+        }
+        if (err != ESP_OK) {
+            return command_error("internal", "head move failed");
+        }
+        cJSON *result = cJSON_CreateObject();
+        cJSON_AddBoolToObject(result, "ok", true);
+        return result;
+    }
+    if (strcmp(command, "stackchan.face") == 0) {
+        cJSON *face = cJSON_GetObjectItem(params, "face");
+        if (!cJSON_IsString(face) || !face->valuestring) {
+            return command_error("missing_param", "face is required");
+        }
+        esp_err_t err = stackchan_face_set(face->valuestring);
+        if (err == ESP_ERR_INVALID_ARG) {
+            return command_error("invalid_param", "unknown face");
+        }
+        if (err != ESP_OK) {
+            return command_error("internal", "face change failed");
+        }
         cJSON *result = cJSON_CreateObject();
         cJSON_AddBoolToObject(result, "ok", true);
         return result;

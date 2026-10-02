@@ -50,6 +50,10 @@ menu "Muse"
         config MUSE_BOARD_M5STACK_STICKC_PLUS2
             bool "M5Stack StickC Plus2 (ESP32, two buttons, no touch)"
             depends on IDF_TARGET_ESP32
+
+        config MUSE_BOARD_M5STACK_STACKCHAN
+            bool "M5Stack StackChan (ESP32-S3, 320x240 touch LCD, head servos)"
+            depends on IDF_TARGET_ESP32S3
     endchoice
 
     config MUSE_ENABLED
@@ -66,6 +70,7 @@ menu "Muse"
         default "sensecap_watcher" if MUSE_BOARD_SENSECAP_WATCHER
         default "m5stack_sticks3" if MUSE_BOARD_M5STACK_STICKS3
         default "m5stack_stickc_plus2" if MUSE_BOARD_M5STACK_STICKC_PLUS2
+        default "m5stack_stackchan" if MUSE_BOARD_M5STACK_STACKCHAN
         default "none"
 
     # The Muse tools' serial port: the console UART behind the board's USB

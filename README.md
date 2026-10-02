@@ -16,6 +16,9 @@ limitations under the License.
 
 # Muse Gadgets
 
+> **MuseChan fork:** this tree adds the M5Stack StackChan (CoreS3) board,
+> head servos and pet reactions to the SDK. See [MUSECHAN.md](MUSECHAN.md).
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/images/muse-gadgets-dark.png">
