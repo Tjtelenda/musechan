@@ -37,10 +37,12 @@ first flash.
 
 ## Build
 
-You need ESP-IDF v6.0.1 and a Muse gadget SDK token (`mgst_...`) from the
-Muse app, as described in the upstream README. Put the token in the build
+You need ESP-IDF v6.0.1 and your own Muse gadget SDK token (`mgst_...`) from
+gadgets.muse.ai (Account > SDK tokens), as described in the upstream README.
+This repository intentionally ships without any token. Put yours in the build
 directory's `sdkconfig` as `CONFIG_GADGET_SDK_TOKEN="mgst_..."` before
-building, then:
+building, and never commit it: `sdkconfig` is gitignored, and a token is an
+identifier for your own Muse account, so treat it like one.
 
 ```sh
 cd esp32
