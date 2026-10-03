@@ -69,7 +69,7 @@ static const char *TAG = "board";
 #define LCD_MOSI GPIO_NUM_37
 #define LCD_DC GPIO_NUM_35         /* also the panel's SDO; see the variant probe */
 #define LCD_CS GPIO_NUM_3
-#define DRAW_BUF_LINES 40
+#define DRAW_BUF_LINES 16
 
 #define I2C_SDA GPIO_NUM_12
 #define I2C_SCL GPIO_NUM_11
