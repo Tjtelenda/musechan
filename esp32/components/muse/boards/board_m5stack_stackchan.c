@@ -57,6 +57,11 @@
 
 static const char *TAG = "board";
 
+/* FT6336U touch controller: TOUCH_RST is AW9523 port 0 bit 0, TOUCH_INT
+ * is port 1 bit 2 (Mouser CoreS3 datasheet, "CAP.TOUCH" block). The LCD's
+ * reset is port 1 bit 1. Keep RST released once the display is up. */
+#define AW9523_TOUCH_RST BIT(0)
+
 #define LCD_W 320
 #define LCD_H 240
 #define LCD_HOST SPI2_HOST
@@ -476,6 +481,14 @@ static lv_display_t *display_start(lv_indev_t **touch)
     if (!disp) {
         return NULL;
     }
+
+    /* Release the touch controller: pulse TOUCH_RST (AW9523 P0_0) and give
+     * it its boot time, the same way the LCD reset was handled. Without
+     * this the FT6336U never leaves reset and NACKs at 0x38. */
+    aw9523_update(AW9523_OUT_P0, AW9523_TOUCH_RST, false);
+    vTaskDelay(pdMS_TO_TICKS(20));
+    aw9523_update(AW9523_OUT_P0, AW9523_TOUCH_RST, true);
+    vTaskDelay(pdMS_TO_TICKS(300));
 
     /* FT5x06-family touch on the same bus. The interrupt line reaches the
      * ESP only through the AW9523, so poll it (LVGL reads every tick). */
