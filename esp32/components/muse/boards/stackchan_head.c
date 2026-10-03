@@ -99,7 +99,7 @@ static esp_err_t scs_write(uint8_t id, uint8_t addr, const uint8_t *data, size_t
         sum += data[i];
     }
     pkt[6 + n] = (uint8_t)~sum;
-    uart_write_bytes(SERVO_UART, pkt, len + 3);
+    uart_write_bytes(SERVO_UART, pkt, (int)(n + 7));   /* header, data, CHK */
     uart_wait_tx_done(SERVO_UART, pdMS_TO_TICKS(50));
     return ESP_OK;
 }
