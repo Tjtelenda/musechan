@@ -1,0 +1,1 @@
+{"avatar_file":"avatar-<id>-1.webp","avatar_sha256":"<sha256 of the active Muse avatar image>","baseline_at":"YYYY-MM-DDTHH:MM:SS-04:00","last_sent_version":null,"last_staged_version":null,"note":"Local operator state only. Do not commit real state.json or pending.json; they are per-Muse, per-device working files."}

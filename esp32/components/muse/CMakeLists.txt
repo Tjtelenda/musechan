@@ -76,6 +76,10 @@ if(CONFIG_MUSE_ENABLED)
         list(APPEND srcs "boards/board_m5stack_stickc_plus2.c")
     elseif(CONFIG_MUSE_BOARD_M5STACK_STACKCHAN)
         list(APPEND srcs "boards/board_m5stack_stackchan.c" "boards/stackchan_head.c" "boards/stackchan_pet.c")
+    elseif(CONFIG_MUSE_BOARD_M5STACK_CORES3)
+        # The CoreS3 hardware driver is shared with StackChan; the StackChan
+        # head/pet sources are deliberately not compiled for a bare CoreS3.
+        list(APPEND srcs "boards/board_m5stack_stackchan.c")
     endif()
 elseif(CONFIG_HOMEHUB_VOICE)
     # The Voice PE board uses just the Hatch voice session; the project's main/

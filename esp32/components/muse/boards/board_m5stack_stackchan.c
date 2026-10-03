@@ -21,14 +21,16 @@
  * holding the LCD reset, the backlight rail and the amp enable, FT5x06-family
  * touch (0x38) and a BMI270 IMU (0x69). The StackChan head base adds two
  * Feetech SCSCL servos on UART1 and an Si12T head-touch sensor (0x68); both
- * are optional, so the same build runs on a bare CoreS3. Every rail, pin and
- * register below was taken from M5's own sources (M5GFX, M5Unified) and the
- * StackChan BSP; the camera is not wired up (its data pins are not published
- * in any of them).
+ * belong to the StackChan build only. The CoreS3-only build compiles this
+ * same CoreS3 hardware driver without the head base, pet reactions or
+ * StackChan device commands. Every rail, pin and register below was taken
+ * from M5's own sources (M5GFX, M5Unified) and the StackChan BSP; the camera
+ * is not wired up (its data pins are not published in any of them).
  */
 #include <math.h>
 #include <string.h>
 
+#include "sdkconfig.h"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "driver/i2s_std.h"
@@ -52,8 +54,10 @@
 #include "muse_board.h"
 #include "muse_mem.h"
 #include "muse_pmu.h"
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
 #include "stackchan_head.h"
 #include "stackchan_pet.h"
+#endif
 
 static const char *TAG = "board";
 
@@ -391,8 +395,10 @@ static esp_err_t init(void)
         ESP_LOGW(TAG, "AXP2101 key/power support unavailable: %s", esp_err_to_name(err));
     }
 
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
     /* Optional StackChan hardware. Neither may fail the board: the same
-     * build runs on a bare CoreS3 without the head base. */
+     * CoreS3 hardware driver also runs in the CoreS3-only build, where the
+     * head base and pet sensors are not compiled in at all. */
     err = stackchan_head_init(s_i2c);
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "no StackChan head base: %s", esp_err_to_name(err));
@@ -401,6 +407,7 @@ static esp_err_t init(void)
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "pet sensors unavailable: %s", esp_err_to_name(err));
     }
+#endif
     return ESP_OK;
 }
 
@@ -651,23 +658,35 @@ static unsigned poll_buttons(void)
 static esp_err_t power_off(void)
 {
     set_brightness(0);
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
     stackchan_head_set_power(false);   /* no-op without the head base */
+#endif
     return muse_pmu_power_off();
 }
 
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+#define BOARD_NAME "M5Stack StackChan"
+#define BOARD_AUX_BUTTON "top"
+#define BOARD_AUX_HINT { LV_ALIGN_TOP_MID, 0, 4 }
+#else
+#define BOARD_NAME "M5Stack CoreS3"
+#define BOARD_AUX_BUTTON "side"
+#define BOARD_AUX_HINT { LV_ALIGN_DEFAULT, 0, 0 }
+#endif
+
 static const muse_board_t s_board = {
-    .name = "M5Stack StackChan",
+    .name = BOARD_NAME,
     .width = LCD_W,
     .height = LCD_H,
     .round = false,
     .touch = true,
     .diagonal_in = 2.0f,
     .talk_button = "side",
-    .aux_button = "top",
+    .aux_button = BOARD_AUX_BUTTON,
     /* The power key is on the left edge; the aux hint points at the head,
      * where the touch sensor lives. */
     .talk_hint = { LV_ALIGN_LEFT_MID, 4, 0 },
-    .aux_hint = { LV_ALIGN_TOP_MID, 0, 4 },
+    .aux_hint = BOARD_AUX_HINT,
     .frame_ms = 40,
     .init = init,
     .display_start = display_start,

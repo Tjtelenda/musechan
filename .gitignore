@@ -20,3 +20,11 @@ build/
 .claude/
 # Interactive simulator screenshot.
 muse-simulator.ppm
+
+# Local MuseChan operator state: per-Muse/per-device working files with
+# avatar hashes, staged OTA URLs and one-off avatar replies. Never commit.
+outfit-ota/state.json
+outfit-ota/pending.json
+outfit-ota/pending-*.json
+/gen_*_avatar.py
+/*-avatar-reply.md

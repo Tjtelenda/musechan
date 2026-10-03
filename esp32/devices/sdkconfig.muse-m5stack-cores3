@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# M5Stack StackChan (CoreS3 controller): ESP32-S3, 16 MB flash, 8 MB quad
-# PSRAM, 320x240 touch LCD, native USB. Flash size and partitions_muse.csv
-# come from sdkconfig.muse. Load last, after sdkconfig.muse.
+# M5Stack CoreS3 only (the StackChan controller without the robot base):
+# ESP32-S3, 16 MB flash, 8 MB quad PSRAM, 320x240 touch LCD, native USB.
+# This build deliberately leaves out the StackChan head servos, pet
+# reactions and stackchan.* device commands. Flash size and
+# partitions_muse.csv come from sdkconfig.muse. Load last, after
+# sdkconfig.muse.
 CONFIG_IDF_TARGET="esp32s3"
-CONFIG_MUSE_BOARD_M5STACK_STACKCHAN=y
+CONFIG_MUSE_BOARD_M5STACK_CORES3=y
 
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_QUAD=y

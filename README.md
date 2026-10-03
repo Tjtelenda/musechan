@@ -17,7 +17,10 @@ limitations under the License.
 # Muse Gadgets
 
 > **MuseChan fork:** this tree adds the M5Stack StackChan (CoreS3) board,
-> head servos and pet reactions to the SDK. See [MUSECHAN.md](MUSECHAN.md).
+> head servos, pet reactions, live face/head device commands, and over-the-air
+> outfit updates, plus a CoreS3-only build with the robot harness compiled
+> out. Start with [MUSECHAN.md](MUSECHAN.md); if you are a Muse operating
+> one, [outfit-ota/README.md](outfit-ota/README.md) is your operator guide.
 
 <p align="center">
   <picture>

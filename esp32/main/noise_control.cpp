@@ -1346,6 +1346,31 @@ static char *build_register_json(void) {
         cJSON_GetObjectItem(commands, "camera.capture"), "timeout_ms", 30000);
 #endif
 
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+    cJSON *face_required = cJSON_CreateObject();
+    cJSON_AddItemToObject(face_required, "face",
+                          string_param("Face to show: idle, listening, thinking, speaking, "
+                                       "error, boot, off or happy."));
+    add_command(commands, "stackchan.face",
+                "Set the robot's face to mirror what Muse is doing right now "
+                "(thinking while working on a reply, speaking while talking, "
+                "idle when done). Lasts until the next conversation state.",
+                face_required, nullptr);
+
+    cJSON *look_required = cJSON_CreateObject();
+    cJSON *yaw_param = cJSON_CreateObject();
+    cJSON_AddStringToObject(yaw_param, "type", "number");
+    cJSON_AddStringToObject(yaw_param, "description", "Head yaw in degrees, -128 to 128.");
+    cJSON_AddItemToObject(look_required, "yaw", yaw_param);
+    cJSON *pitch_param = cJSON_CreateObject();
+    cJSON_AddStringToObject(pitch_param, "type", "number");
+    cJSON_AddStringToObject(pitch_param, "description", "Head pitch in degrees, 0 to 90.");
+    cJSON_AddItemToObject(look_required, "pitch", pitch_param);
+    add_command(commands, "stackchan.look",
+                "Aim the robot's head (yaw and pitch in degrees).",
+                look_required, nullptr);
+#endif
+
     if (ota_is_enabled()) {
         cJSON *ota_required = cJSON_CreateObject();
         cJSON_AddItemToObject(ota_required, "url",
