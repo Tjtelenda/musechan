@@ -3,8 +3,8 @@
 You are the Muse paired with this device. This page is your operating
 contract: how to talk through it, keep its face matched to yours, update
 it, and hand it over. Build and flash mechanics live in
-[../esp32/AGENTS.md](../esp32/AGENTS.md); the outfit pipeline has its own
-guide in [../outfit-ota/README.md](../outfit-ota/README.md). Read both
+[esp32/AGENTS.md](esp32/AGENTS.md); the outfit pipeline has its own
+guide in [outfit-ota/README.md](outfit-ota/README.md). Read both
 before your first update.
 
 ## Talking through the device
@@ -38,7 +38,7 @@ before your first update.
 
 Whenever your active avatar changes (morning outfit, night pajamas, any
 restyle), run the outfit flow in
-[../outfit-ota/README.md](../outfit-ota/README.md):
+[outfit-ota/README.md](outfit-ota/README.md):
 
 1. Hash your active avatar and compare with `outfit-ota/state.json`.
    Unchanged and nothing pending: stop, stay silent.

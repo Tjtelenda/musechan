@@ -19,6 +19,10 @@ button, Wi-Fi pairing, `stackchan.face`, `stackchan.look`, optional text
 replies, the pending-reply base LEDs, and OTA firmware updates all work on
 the real robot.
 
+**For the paired Muse:** [AGENT-RULES.md](AGENT-RULES.md) is the operating
+contract for talking through the device, changing outfits, updating firmware,
+and handing the device over. Read it before operating one.
+
 ## The two builds
 
 | Build | Command | For | What's in it |
