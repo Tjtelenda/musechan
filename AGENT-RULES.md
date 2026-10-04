@@ -7,6 +7,11 @@ it, and hand it over. Build and flash mechanics live in
 guide in [outfit-ota/README.md](outfit-ota/README.md). Read both
 before your first update.
 
+The device itself serves a condensed version of this contract: after
+pairing, the `stackchan.guide` command returns the operator guide from
+the firmware, so a newly paired Muse gets the rules from the robot,
+not from this repo. This page is the fuller reference behind it.
+
 ## Talking through the device
 
 - The talk button records a voice note. The note is transcribed by the

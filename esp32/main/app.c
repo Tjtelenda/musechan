@@ -1634,6 +1634,115 @@ static char *json_strdup_string(cJSON *params, const char *key) {
     return strdup(item->valuestring);
 }
 
+#if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+/* The operator guide this device hands to its paired Muse. Pairing only
+ * surfaces commands_v2, so this text is the one place the robot itself can
+ * teach a newly paired Muse how it wants to be run. It ships in firmware
+ * flash and is served verbatim: keep it free of device identifiers, names
+ * and secrets. Conditional lines follow the build that serves them. */
+static const char STACKCHAN_GUIDE[] =
+    "MuseChan operator guide\n"
+    "You are paired with MuseChan, a Muse gadget built on an M5Stack "
+    "StackChan robot (CoreS3 controller). Read this once, save these rules, "
+    "and follow them before using the other stackchan commands.\n"
+    "\n"
+    "Talking\n"
+    "- The talk button (the CoreS3's left-edge power key; press, do not "
+    "hold) records a voice note. The note is transcribed by the server and "
+    "posted into your chat, and this device waits for your reply. Answer "
+    "in the chat like any other message.\n"
+#if CONFIG_MUSE_TEXT_REPLIES
+    "- Replies are shown on the device's face as text captions; they are "
+    "not spoken. Keep replies to voice notes brief: one or two short "
+    "sentences. If the real answer is long, reply with a short pointer "
+    "(for example: that one is long, details are in your app) and put the "
+    "full answer in the chat as a normal message.\n"
+#else
+    "- Keep replies to voice notes brief: one or two short sentences. If "
+    "the real answer is long, reply with a short pointer (for example: "
+    "that one is long, details are in your app) and put the full answer "
+    "in the chat as a normal message.\n"
+#endif
+    "- You may see an automatic \"Sorry, I ran into a problem while "
+    "responding. Please try again.\" right after a voice note. The "
+    "backend posts it; it is not from you and not from this device. "
+    "Ignore it and answer the note normally.\n"
+    "\n"
+    "Face and head\n"
+    "- Mirror your state on the face with stackchan.face: thinking while "
+    "you compose a reply, speaking while a reply shows, idle when done.\n"
+    "- Aim the head with stackchan.look: yaw -128..128, pitch 0..90.\n"
+#if CONFIG_MUSE_STACKCHAN_PENDING_LED
+    "- The twelve base LEDs flash amber while a reply has been shown and "
+    "not yet acknowledged. Starting the next talk clears them; so do a "
+    "tap on the face and a double pat on the head. Do not remind your "
+    "human about the light; it is the reminder.\n"
+#else
+    "- This build does not enable the pending-reply light; the base LEDs "
+    "stay off.\n"
+#endif
+    "\n"
+    "Camera\n"
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+    "- A camera.capture command exists in this build, but the camera "
+    "driver is experimental and its frames are not usable. Do not offer "
+    "photos, do not promise a camera feed, and do not rely on captures.\n"
+#else
+    "- The camera is parked: this device has no usable camera command. "
+    "Do not offer photos or a camera feed.\n"
+#endif
+    "\n"
+    "Face, outfits, and firmware\n"
+    "- The face (the avatar rendering) is compiled into the firmware "
+    "image. When your avatar changes (morning outfit, night pajamas, any "
+    "restyle), the robot's outfit changes only when a rebuilt firmware "
+    "image is sent with device.ota {\"url\": \"<https url>\", \"force\": "
+    "true}. Verify afterwards with device.health. If your environment "
+    "cannot build firmware, say so; never claim the outfit changed when "
+    "it did not.\n"
+    "- Routine: run one check after your morning outfit change and one "
+    "at night for pajamas. If the avatar is unchanged, do nothing.\n"
+    "- Pairing and Wi-Fi live on the device and survive firmware "
+    "updates. Only an erase or a setup reset unpairs.\n"
+    "\n"
+    "Handing over, and secrets\n"
+    "- Setup reset: hold the CoreS3's left-edge power key for about 5 "
+    "seconds. The device unpairs and forgets Wi-Fi; the firmware and "
+    "the face stay. The next Muse pairs from their Muse app and "
+    "provisions their Wi-Fi.\n"
+    "- Never ask your human to paste an SDK token, password, or other "
+    "secret into chat, and never put one in a message, file, or log. If "
+    "a build needs your account's SDK token, it goes into that build's "
+    "own configuration through a secure path, never through chat.\n";
+
+static cJSON *stackchan_guide_command(void) {
+    cJSON *result = cJSON_CreateObject();
+    cJSON_AddBoolToObject(result, "ok", true);
+    cJSON *payload = cJSON_AddObjectToObject(result, "payload");
+    cJSON_AddStringToObject(payload, "board", "M5Stack StackChan");
+    const esp_app_desc_t *desc = esp_app_get_description();
+    cJSON_AddStringToObject(payload, "firmware", desc ? desc->version : "unknown");
+    cJSON *capabilities = cJSON_AddObjectToObject(payload, "capabilities");
+#if CONFIG_MUSE_TEXT_REPLIES
+    cJSON_AddBoolToObject(capabilities, "text_replies", true);
+#else
+    cJSON_AddBoolToObject(capabilities, "text_replies", false);
+#endif
+#if CONFIG_MUSE_STACKCHAN_PENDING_LED
+    cJSON_AddBoolToObject(capabilities, "pending_led", true);
+#else
+    cJSON_AddBoolToObject(capabilities, "pending_led", false);
+#endif
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+    cJSON_AddBoolToObject(capabilities, "camera_capture", true);
+#else
+    cJSON_AddBoolToObject(capabilities, "camera_capture", false);
+#endif
+    cJSON_AddStringToObject(payload, "guide", STACKCHAN_GUIDE);
+    return result;
+}
+#endif
+
 static void free_ws_control_args(ws_control_args_t *args) {
     if (!args) return;
     free(args->url);
@@ -1877,6 +1986,9 @@ static cJSON *on_ws_command(
     }
 #endif
 #if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+    if (strcmp(command, "stackchan.guide") == 0) {
+        return stackchan_guide_command();
+    }
     if (strcmp(command, "stackchan.look") == 0) {
         cJSON *yaw = cJSON_GetObjectItem(params, "yaw");
         cJSON *pitch = cJSON_GetObjectItem(params, "pitch");

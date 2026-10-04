@@ -1358,6 +1358,12 @@ static char *build_register_json(void) {
 #endif
 
 #if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
+    add_command(commands, "stackchan.guide",
+                "START HERE after pairing: returns this robot's operator guide "
+                "from the device itself. Read it once, save the rules, and "
+                "follow them before using the other stackchan commands.",
+                nullptr, nullptr);
+
     cJSON *face_required = cJSON_CreateObject();
     cJSON_AddItemToObject(face_required, "face",
                           string_param("Face to show: idle, listening, thinking, speaking, "
@@ -1365,7 +1371,8 @@ static char *build_register_json(void) {
     add_command(commands, "stackchan.face",
                 "Set the robot's face to mirror what Muse is doing right now "
                 "(thinking while working on a reply, speaking while talking, "
-                "idle when done). Lasts until the next conversation state.",
+                "idle when done). Lasts until the next conversation state. "
+                "New here? Call stackchan.guide first.",
                 face_required, nullptr);
 
     cJSON *look_required = cJSON_CreateObject();
@@ -1378,7 +1385,8 @@ static char *build_register_json(void) {
     cJSON_AddStringToObject(pitch_param, "description", "Head pitch in degrees, 0 to 90.");
     cJSON_AddItemToObject(look_required, "pitch", pitch_param);
     add_command(commands, "stackchan.look",
-                "Aim the robot's head (yaw and pitch in degrees).",
+                "Aim the robot's head (yaw and pitch in degrees). "
+                "New here? Call stackchan.guide first.",
                 look_required, nullptr);
 #endif
 
