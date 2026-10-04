@@ -1652,11 +1652,13 @@ static const char STACKCHAN_GUIDE[] =
     "posted into your chat, and this device waits for your reply. Answer "
     "in the chat like any other message.\n"
 #if CONFIG_MUSE_TEXT_REPLIES
-    "- Replies are shown on the device's face as text captions; they are "
-    "not spoken. Keep replies to voice notes brief: one or two short "
-    "sentences. If the real answer is long, reply with a short pointer "
-    "(for example: that one is long, details are in your app) and put the "
-    "full answer in the chat as a normal message.\n"
+    "- Replies are spoken aloud when speech is available, and they are "
+    "also shown on the device's face as text captions. When speech is "
+    "not available or cannot be reached, the captions carry the reply. "
+    "Keep replies to voice notes brief: one or two short sentences. If "
+    "the real answer is long, reply with a short pointer (for example: "
+    "that one is long, details are in your app) and put the full answer "
+    "in the chat as a normal message.\n"
 #else
     "- Keep replies to voice notes brief: one or two short sentences. If "
     "the real answer is long, reply with a short pointer (for example: "
@@ -1732,6 +1734,11 @@ static cJSON *stackchan_guide_command(void) {
     cJSON_AddBoolToObject(capabilities, "pending_led", true);
 #else
     cJSON_AddBoolToObject(capabilities, "pending_led", false);
+#endif
+#if defined(CONFIG_MUSE_LOCAL_TTS_URL)
+    cJSON_AddBoolToObject(capabilities, "local_tts", sizeof(CONFIG_MUSE_LOCAL_TTS_URL) > 1);
+#else
+    cJSON_AddBoolToObject(capabilities, "local_tts", false);
 #endif
 #if CONFIG_MUSE_STACKCHAN_CAMERA
     cJSON_AddBoolToObject(capabilities, "camera_capture", true);

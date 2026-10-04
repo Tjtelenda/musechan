@@ -53,6 +53,7 @@
 #include "esp_attr.h"
 #include "esp_crt_bundle.h"
 #include "esp_heap_caps.h"
+#include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -1517,6 +1518,148 @@ static bool text_replies(void)
 
 /* ---- Turn: speech ---- */
 
+static void tts_data(const uint8_t *data, size_t len);
+
+/*
+ * Local TTS: POST the reply text to a Piper service and feed the MP3
+ * it returns into tts_data(), which the normal decode path plays. The
+ * primary URL is normally the home LAN service; the fallback URL is
+ * tried once when the primary fails, for use off the LAN. Returns
+ * false when no endpoint is configured, the reply has no text, or
+ * both endpoints fail, so the caller falls back to the existing
+ * behavior (captions, or the Muse speech fetch).
+ */
+#define LOCAL_TTS_MAX_CHARS 700
+
+static const char *local_tts_url(void)
+{
+#if defined(CONFIG_MUSE_LOCAL_TTS_URL)
+    return CONFIG_MUSE_LOCAL_TTS_URL;
+#else
+    return "";
+#endif
+}
+
+static const char *local_tts_fallback_url(void)
+{
+#if defined(CONFIG_MUSE_LOCAL_TTS_FALLBACK_URL)
+    return CONFIG_MUSE_LOCAL_TTS_FALLBACK_URL;
+#else
+    return "";
+#endif
+}
+
+static const char *local_tts_token(void)
+{
+#if defined(CONFIG_MUSE_LOCAL_TTS_TOKEN)
+    return CONFIG_MUSE_LOCAL_TTS_TOKEN;
+#else
+    return "";
+#endif
+}
+
+static bool local_tts_configured(void)
+{
+    const char *url = local_tts_url();
+    return url && url[0];
+}
+
+static esp_err_t local_tts_on_data(esp_http_client_event_t *evt)
+{
+    if (evt->event_id == HTTP_EVENT_ON_DATA) {
+        tts_data((const uint8_t *)evt->data, (size_t)evt->data_len);
+    }
+    return ESP_OK;
+}
+
+/* POST json to one endpoint; playback state is reset per attempt. */
+static bool local_tts_try(msg_t &m, int idx, const char *url, const char *json)
+{
+    m.tts = TTS_ACTIVE;
+    s_turn.tts_msg = idx;
+    s_turn.silent = false;
+    m.pcm_start = s_turn.pcm_out;
+    m.pcm_frames = 0;
+    s_turn.mp3_len = 0;
+    s_turn.mp3_ended = false;
+    s_turn.kbps = 0;
+    s_turn.down_rate = 0;
+    mp3dec_init(&s_turn.dec);
+
+    esp_http_client_config_t cfg = {};
+    cfg.url = url;
+    cfg.method = HTTP_METHOD_POST;
+    cfg.timeout_ms = 45000;
+    cfg.buffer_size = 4096;
+    cfg.event_handler = local_tts_on_data;
+    if (!strncmp(url, "https://", 8)) {
+        cfg.crt_bundle_attach = esp_crt_bundle_attach;
+    }
+    esp_http_client_handle_t client = esp_http_client_init(&cfg);
+    if (!client) {
+        return false;
+    }
+    esp_http_client_set_header(client, "Content-Type", "application/json");
+    const char *token = local_tts_token();
+    if (token && token[0]) {
+        esp_http_client_set_header(client, "X-Tts-Auth", token);
+    }
+    esp_http_client_set_post_field(client, json, (int)strlen(json));
+    esp_err_t err = esp_http_client_perform(client);
+    int status = esp_http_client_get_status_code(client);
+    esp_http_client_cleanup(client);
+    if (err == ESP_OK && status == 200 && s_turn.mp3_len > 0) {
+        s_turn.mp3_ended = true;
+        ESP_LOGI(TAG, "local TTS: %u bytes of MP3 for message %s", (unsigned)s_turn.mp3_len, m.id);
+        return true;
+    }
+    ESP_LOGW(TAG, "local TTS failed (err %s, HTTP %d, %u bytes); falling back",
+             esp_err_to_name(err), status, (unsigned)s_turn.mp3_len);
+    s_turn.mp3_len = 0;
+    return false;
+}
+
+static bool local_tts_fetch(msg_t &m, int idx, const char *text)
+{
+    const char *url = local_tts_url();
+    if (!url || !url[0] || !text || !text[0]) {
+        return false;
+    }
+    /* JSON-escape the text, capped so one reply stays a short utterance. */
+    size_t cap = LOCAL_TTS_MAX_CHARS * 2 + 16;
+    char *json = (char *)psram_alloc(cap);
+    if (!json) {
+        return false;
+    }
+    size_t n = 0;
+    n += snprintf(json + n, cap - n, "{\"text\":\"");
+    size_t chars = 0;
+    for (const char *p = text; *p && chars < LOCAL_TTS_MAX_CHARS && n + 3 < cap; p++) {
+        char c = *p;
+        if (c == '"' || c == '\\') {
+            json[n++] = '\\';
+            json[n++] = c;
+        } else if ((unsigned char)c < 0x20) {
+            json[n++] = ' ';
+        } else {
+            json[n++] = c;
+        }
+        chars++;
+    }
+    n += snprintf(json + n, cap - n, "\"}");
+    json[n] = '\0';
+
+    bool ok = local_tts_try(m, idx, url, json);
+    if (!ok) {
+        const char *fallback = local_tts_fallback_url();
+        if (fallback && fallback[0]) {
+            ok = local_tts_try(m, idx, fallback, json);
+        }
+    }
+    heap_caps_free(json);
+    return ok;
+}
+
 static void start_tts(void)
 {
     if (s_turn.tts_msg >= 0) {
@@ -1527,7 +1670,7 @@ static void start_tts(void)
         if (m.tts != TTS_QUEUED) {
             continue;
         }
-        if (!muse_settings_speaker_on() || text_replies()) {
+        if (!muse_settings_speaker_on()) {
             /* Nothing to fetch. Silence in place of the speech paces the
              * captions, and ends the turn, just as the speech would. */
             m.pcm_start = s_turn.pcm_out;
@@ -1535,8 +1678,32 @@ static void start_tts(void)
             m.tts = TTS_ACTIVE;
             s_turn.tts_msg = i;
             s_turn.silent = true;
-            ESP_LOGI(TAG, "%s: showing message %s (%u chars) without speech",
-                     text_replies() ? "text replies" : "speaker off", m.id, (unsigned)m.len);
+            ESP_LOGI(TAG, "speaker off: showing message %s (%u chars) without speech",
+                     m.id, (unsigned)m.len);
+            show_reply_start(m);
+            return;
+        }
+        /*
+         * Local TTS, when configured: speak the reply through the LAN
+         * Piper service. On any failure, fall through to the existing
+         * behavior below (captions, or the Muse speech fetch).
+         */
+        const char *reply_text = s_turn.texts ? s_turn.texts + i * TEXT_MAX : nullptr;
+        if (local_tts_configured() && reply_text && reply_text[0]
+                && local_tts_fetch(m, i, reply_text)) {
+            show_reply_start(m);
+            return;
+        }
+        if (text_replies()) {
+            /* Silence in place of the speech paces the captions, and
+             * ends the turn, just as the speech would. */
+            m.pcm_start = s_turn.pcm_out;
+            m.pcm_frames = (uint32_t)(m.len * MIC_RATE / TEXT_CHARS_PER_S);
+            m.tts = TTS_ACTIVE;
+            s_turn.tts_msg = i;
+            s_turn.silent = true;
+            ESP_LOGI(TAG, "text replies: showing message %s (%u chars) without speech",
+                     m.id, (unsigned)m.len);
             show_reply_start(m);
             return;
         }

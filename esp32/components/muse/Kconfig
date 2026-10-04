@@ -138,4 +138,37 @@ menu "Muse"
             speech. Reply text and timing are unchanged. Turn this off
             again once spoken replies work.
 
+    config MUSE_LOCAL_TTS_URL
+        string "Local TTS endpoint URL (returns MP3 for posted reply text)"
+        depends on MUSE_HATCH
+        default ""
+        help
+            When set, replies are spoken by POSTing their text as JSON
+            to this endpoint, which must return MP3 audio. The returned
+            MP3 is played through the normal reply playback path. Leave
+            empty to keep the current behavior (captions, or the Muse
+            speech fetch when text replies are off). This is a LAN
+            service URL; it carries no secrets.
+
+    config MUSE_LOCAL_TTS_FALLBACK_URL
+        string "Local TTS fallback endpoint URL (tried when the primary fails)"
+        depends on MUSE_HATCH
+        default ""
+        help
+            When set, this endpoint is tried once if the local TTS
+            endpoint above fails, for example a public HTTPS address
+            used when the gadget is off the home LAN. Leave empty to
+            keep the current behavior.
+
+    config MUSE_LOCAL_TTS_TOKEN
+        string "Local TTS auth token (sent as the X-Tts-Auth header)"
+        depends on MUSE_HATCH
+        default ""
+        help
+            When set, the value is sent to the local TTS endpoints as
+            the X-Tts-Auth header so a public endpoint can reject
+            strangers. Leave empty to keep the current behavior. Keep
+            real tokens in the per-build sdkconfig only; never commit
+            one here.
+
 endmenu
