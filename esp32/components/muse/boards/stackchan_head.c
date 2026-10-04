@@ -27,9 +27,12 @@
 #include "driver/uart.h"
 #include "esp_check.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
 
+#include "muse_state.h"
 #include "stackchan_head.h"
 
 static const char *TAG = "stackchan_head";
@@ -40,6 +43,14 @@ static const char *TAG = "stackchan_head";
 #define IOE_GPIO_O_L 0x05
 #define IOE_GPIO_PU_L 0x09
 #define IOE_SERVO_POWER BIT(0)
+#define IOE_GPIO_M_H 0x04          /* high bank: pins 8..13, same layout as low */
+#define IOE_GPIO_PU_H 0x0A
+#define IOE_GPIO_PD_H 0x0C
+#define IOE_GPIO_DRV_H 0x14        /* 1 = open-drain, so 0 is push-pull */
+#define IOE_LED_CFG 0x24           /* base LEDs: count in low 6 bits, bit 6 refreshes */
+#define IOE_LED_RAM 0x30           /* base LEDs: two RGB565 bytes per LED from here */
+#define IOE_LED_DATA_BIT 5         /* LED data out is expander pin 13, high-bank bit 5 */
+#define BASE_LED_COUNT 12          /* 0-5 on the left of the base, 6-11 on the right */
 
 #define SERVO_UART UART_NUM_1
 #define SERVO_TX GPIO_NUM_6
@@ -74,6 +85,69 @@ static esp_err_t ioe_update(uint8_t reg, uint8_t mask, bool on)
     uint8_t want = on ? v | mask : v & ~mask;
     return want == v ? ESP_OK : ioe_write(reg, want);
 }
+
+#if CONFIG_MUSE_STACKCHAN_PENDING_LED
+/*
+ * The twelve base LEDs, through the expander's LED engine. M5's BSP init
+ * order (stackchan-bsp's M5StackChan.cpp): the LED data pin out with a
+ * pull-up, push-pull, count 12, then an all-off frame. A frame is 24 bytes
+ * of little-endian RGB565 from IOE_LED_RAM, pushed out by setting bit 6 of
+ * the count register.
+ */
+static esp_err_t base_leds_show(uint8_t r, uint8_t g, uint8_t b)
+{
+    const uint16_t c = ((uint16_t)(r & 0xF8) << 8) | ((uint16_t)(g & 0xFC) << 3) | (uint16_t)(b >> 3);
+    uint8_t buf[1 + BASE_LED_COUNT * 2];
+    buf[0] = IOE_LED_RAM;
+    for (int i = 0; i < BASE_LED_COUNT; i++) {
+        buf[1 + i * 2] = (uint8_t)(c & 0xFF);
+        buf[2 + i * 2] = (uint8_t)(c >> 8);
+    }
+    ESP_RETURN_ON_ERROR(i2c_master_transmit(s_ioe, buf, sizeof(buf), 100), TAG, "led frame");
+    uint8_t cfg;
+    ESP_RETURN_ON_ERROR(ioe_read(IOE_LED_CFG, &cfg), TAG, "led cfg read");
+    return ioe_write(IOE_LED_CFG, cfg | (1 << 6));
+}
+
+static esp_err_t base_leds_init(void)
+{
+    ESP_RETURN_ON_ERROR(ioe_update(IOE_GPIO_M_H, BIT(IOE_LED_DATA_BIT), true), TAG, "led pin output");
+    ESP_RETURN_ON_ERROR(ioe_update(IOE_GPIO_PU_H, BIT(IOE_LED_DATA_BIT), true), TAG, "led pin pull-up");
+    ESP_RETURN_ON_ERROR(ioe_update(IOE_GPIO_PD_H, BIT(IOE_LED_DATA_BIT), false), TAG, "led pin pull-down");
+    ESP_RETURN_ON_ERROR(ioe_update(IOE_GPIO_DRV_H, BIT(IOE_LED_DATA_BIT), false), TAG, "led pin push-pull");
+    ESP_RETURN_ON_ERROR(ioe_write(IOE_LED_CFG, BASE_LED_COUNT), TAG, "led count");
+    return base_leds_show(0, 0, 0);
+}
+
+/* Amber, half a second on and half off, while a reply from Muse waits. */
+static void pending_led_task(void *arg)
+{
+    (void)arg;
+    bool was_pending = false, lit = false;
+    int64_t phase_ms = 0;
+    for (;;) {
+        const bool pending = muse_state_reply_pending();
+        const int64_t now_ms = esp_timer_get_time() / 1000;
+        if (pending && !was_pending) {
+            ESP_LOGI(TAG, "base LEDs: a reply from Muse is waiting, flashing");
+            was_pending = true;
+            phase_ms = now_ms - 600;  /* first frame right away */
+        }
+        if (!pending && was_pending) {
+            base_leds_show(0, 0, 0);
+            ESP_LOGI(TAG, "base LEDs: the reply from Muse was read, LEDs off");
+            was_pending = false;
+            lit = false;
+        }
+        if (pending && now_ms - phase_ms >= 500) {
+            phase_ms = now_ms;
+            lit = !lit;
+            base_leds_show(lit ? 255 : 0, lit ? 140 : 0, 0);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+#endif /* CONFIG_MUSE_STACKCHAN_PENDING_LED */
 
 /* FF FF ID LEN INST ADDR DATA... CHK, with CHK the inverted low byte of the
  * sum from ID through DATA (the SCSCL packet layout). */
@@ -158,6 +232,14 @@ esp_err_t stackchan_head_init(i2c_master_bus_handle_t bus)
     ESP_RETURN_ON_ERROR(ioe_update(IOE_GPIO_PU_L, IOE_SERVO_POWER, true), TAG, "servo pin pull-up");
     ESP_RETURN_ON_ERROR(ioe_update(IOE_GPIO_O_L, IOE_SERVO_POWER, true), TAG, "servo power on");
     s_present = true;
+
+#if CONFIG_MUSE_STACKCHAN_PENDING_LED
+    if (base_leds_init() == ESP_OK) {
+        xTaskCreate(pending_led_task, "stackchan_led", 3072, NULL, 2, NULL);
+    } else {
+        ESP_LOGW(TAG, "base LEDs unavailable");
+    }
+#endif
 
     const uart_config_t uart_cfg = {
         .baud_rate = 1000000,

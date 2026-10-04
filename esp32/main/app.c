@@ -30,7 +30,7 @@
 #include "cJSON.h"
 
 #include "esp_heap_caps.h"
-#if CONFIG_MUSE_WATCHER_CAMERA
+#if CONFIG_MUSE_WATCHER_CAMERA || CONFIG_MUSE_STACKCHAN_CAMERA
 #include "freertos/idf_additions.h"
 #endif
 #include "esp_timer.h"
@@ -70,6 +70,9 @@
 #endif
 #if CONFIG_MUSE_WATCHER_CAMERA
 #include "boards/watcher_camera.h"
+#endif
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+#include "boards/stackchan_camera.h"
 #endif
 #if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
 #include "boards/stackchan_head.h"
@@ -1549,7 +1552,7 @@ static void draw_url_done(const image_fetch_result_t *r, void *user) {
 }
 #endif
 
-#if CONFIG_MUSE_WATCHER_CAMERA
+#if CONFIG_MUSE_WATCHER_CAMERA || CONFIG_MUSE_STACKCHAN_CAMERA
 typedef struct {
     noise_ctrl_session_generation_t session_generation;
     char request_id[64];
@@ -1560,7 +1563,11 @@ static void watcher_camera_capture_task(void *arg) {
     char *image = NULL;
     const char *error = NULL;
     cJSON *result = cJSON_CreateObject();
+#if CONFIG_MUSE_WATCHER_CAMERA
     bool ok = watcher_camera_capture(&image, &error);
+#else
+    bool ok = stackchan_camera_capture(&image, &error);
+#endif
     cJSON_AddBoolToObject(result, "ok", ok);
     if (ok) {
         cJSON *payload = cJSON_AddObjectToObject(result, "payload");
@@ -1904,7 +1911,7 @@ static cJSON *on_ws_command(
         return result;
     }
 #endif
-#if CONFIG_MUSE_WATCHER_CAMERA
+#if CONFIG_MUSE_WATCHER_CAMERA || CONFIG_MUSE_STACKCHAN_CAMERA
     if (strcmp(command, "camera.capture") == 0) {
         watcher_camera_task_args_t *args = calloc(1, sizeof(*args));
         if (!args) return command_error("out_of_memory", "failed to allocate camera request");

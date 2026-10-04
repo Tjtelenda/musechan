@@ -24,8 +24,9 @@
  * belong to the StackChan build only. The CoreS3-only build compiles this
  * same CoreS3 hardware driver without the head base, pet reactions or
  * StackChan device commands. Every rail, pin and register below was taken
- * from M5's own sources (M5GFX, M5Unified) and the StackChan BSP; the camera
- * is not wired up (its data pins are not published in any of them).
+ * from M5's own sources (M5GFX, M5Unified, M5CoreS3) and the StackChan BSP;
+ * the CoreS3's GC0308 camera pins are M5CoreS3's GC0308.cpp, wired up under
+ * CONFIG_MUSE_STACKCHAN_CAMERA.
  */
 #include <math.h>
 #include <string.h>
@@ -57,6 +58,11 @@
 #if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
 #include "stackchan_head.h"
 #include "stackchan_pet.h"
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+#include "camera.h"
+#include "camera_gc0308.h"
+#include "boards/stackchan_camera.h"
+#endif
 #endif
 
 static const char *TAG = "board";
@@ -95,6 +101,7 @@ static const char *TAG = "board";
 #define AW9523_GCR 0x11
 #define AW9523_BOOST_EN BIT(7)     /* P1_7: the SY7088 boost for the base */
 #define AW9523_LCD_RST BIT(1)      /* P1_1 */
+#define AW9523_CAM_RST BIT(0)      /* P1_0: the GC0308's reset (M5's CAM_RST) */
 #define AW9523_SPK_EN BIT(2)       /* P0_2: the AW88298's enable */
 
 static i2c_master_bus_handle_t s_i2c;
@@ -369,6 +376,12 @@ static esp_err_t init(void)
      * pulses it properly, and the amp stays off until the speaker opens. */
     ESP_RETURN_ON_ERROR(aw9523_update(AW9523_OUT_P0, AW9523_SPK_EN, false), TAG, "amp off");
     ESP_RETURN_ON_ERROR(aw9523_update(AW9523_OUT_P1, AW9523_LCD_RST, true), TAG, "lcd rst idle");
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+    /* The GC0308's reset is this P1_0, not an ESP32 pin (M5Unified's begin
+     * releases it; esp32-camera never sees it). Held low, the camera never
+     * answers on SCCB. */
+    ESP_RETURN_ON_ERROR(aw9523_update(AW9523_OUT_P1, AW9523_CAM_RST, true), TAG, "cam rst release");
+#endif
     ESP_RETURN_ON_ERROR(aw9523_update(AW9523_OUT_P1, AW9523_BOOST_EN, true), TAG, "boost on");
 
     /* M5's CoreS3 power table (M5Unified's Power_Class), so the codec rails
@@ -407,6 +420,13 @@ static esp_err_t init(void)
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "pet sensors unavailable: %s", esp_err_to_name(err));
     }
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+    if (stackchan_camera_prepare() != ESP_OK) {
+        ESP_LOGW(TAG, "Muse camera unavailable: no memory");
+    } else {
+        camera_register(camera_gc0308());
+    }
+#endif
 #endif
     return ESP_OK;
 }

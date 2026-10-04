@@ -107,4 +107,35 @@ menu "Muse"
             voice notes go over Home Link's own session to its paired VM and
             replies are shown as text only.
 
+    config MUSE_STACKCHAN_CAMERA
+        bool "Muse camera capture on StackChan (CoreS3 GC0308)"
+        depends on MUSE_BOARD_M5STACK_STACKCHAN && SPIRAM
+        default n
+        help
+            Enable the camera.capture Muse command on StackChan, using the
+            CoreS3's built-in GC0308 camera. The paired Muse can ask for
+            one still JPEG at a time. Camera buffers live in PSRAM and the
+            sensor is only initialised on the first capture. Leave disabled
+            to build without camera support.
+
+    config MUSE_STACKCHAN_PENDING_LED
+        bool "Flash the StackChan base LEDs while a Muse reply is pending"
+        depends on MUSE_BOARD_M5STACK_STACKCHAN
+        default n
+        help
+            While a reply from Muse has been shown on the face and not yet
+            acknowledged, the twelve base LEDs flash amber. A double tap on
+            the head, a tap on the face, or starting the next talk clears
+            it. Leave disabled to keep the base LEDs off.
+
+    config MUSE_TEXT_REPLIES
+        bool "Show Muse's replies as on-screen text instead of speech"
+        depends on MUSE_HATCH
+        default n
+        help
+            Push-to-talk turns are posted to Muse as text, and replies
+            are shown on the face as captions instead of being fetched as
+            speech. Reply text and timing are unchanged. Turn this off
+            again once spoken replies work.
+
 endmenu

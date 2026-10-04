@@ -92,3 +92,12 @@ void muse_state_nudge(void);
 /* Touch/pet reaction. */
 void muse_state_make_happy(void);
 float muse_state_happiness(void);
+
+/*
+ * A reply from Muse has been shown and not yet acknowledged: set when a
+ * voice turn ends having displayed a reply, cleared when the next turn
+ * starts, when the face is tapped, or (on StackChan) by a double head pat.
+ * Only StackChan's base LEDs read it; on other boards it just sits there.
+ */
+void muse_state_set_reply_pending(bool pending);
+bool muse_state_reply_pending(void);

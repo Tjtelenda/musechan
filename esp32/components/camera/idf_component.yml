@@ -14,3 +14,7 @@
 
 dependencies:
   espressif/cjson: "~1.7"
+  espressif/esp32-camera:
+    version: "^2"
+    rules:
+      - if: "$CONFIG{MUSE_BOARD_ID} == \"m5stack_stackchan\""

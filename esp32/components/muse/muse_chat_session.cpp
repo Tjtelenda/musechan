@@ -110,8 +110,8 @@ static const char *TAG = "muse_chat_session";
 #define AUTO_RETRY_MIN_US (5 * 1000000LL)  /* connecting without a turn, after a failure */
 #define AUTO_RETRY_MAX_US (120 * 1000000LL)
 #define FINAL_TIMEOUT_US (15 * 1000000LL)  /* release -> final transcript */
-#define REPLY_TIMEOUT_US (60 * 1000000LL)  /* chat posted -> first assistant message */
-#define TURN_CAP_US (180 * 1000000LL)
+#define REPLY_TIMEOUT_US (300 * 1000000LL)  /* chat posted -> first assistant message; the chat agent answers in its own turn, which can start minutes after the note */
+#define TURN_CAP_US (600 * 1000000LL)
 #define SETTLE_US (3 * 1000000LL)          /* quiet period that ends a turn */
 #define BUSY_HOLD_US (20 * 1000000LL)      /* how long a busy agent keeps it open */
 #define TEXT_REPLY_TIMEOUT_US (5 * 60 * 1000000LL)   /* typed turns: agents can work a while */
@@ -201,6 +201,7 @@ struct msg_t {
     size_t len;              /* reply text length so far */
     char tail[128];          /* its last characters, for the caption */
     bool done;
+    bool empty;              /* completed with no text: not the reply (voice turns wait past these) */
     tts_t tts;
     uint32_t pcm_start;      /* where its speech starts in the reply audio */
     uint32_t pcm_frames;     /* how long it is; 0 until the MP3 has all arrived */
@@ -1214,7 +1215,11 @@ static void post_chat(const char *text)
     }
     ESP_LOGI(TAG, "heard: \"%s\"", text);
     emit(MUSE_HATCH_EV_HEARD, text);
+#if defined(CONFIG_MUSE_TEXT_REPLIES) && CONFIG_MUSE_TEXT_REPLIES
+    send_chat(text, "text");
+#else
     send_chat(text, "voice");
+#endif
 }
 
 /* A typed turn: the text goes straight to the chat. */
@@ -1383,6 +1388,14 @@ static void message_done(int i, const char *final_text)
     if (!m.len && final_text && final_text[0]) {
         append_text(m, final_text);
     }
+    if (!m.len) {
+        /* The backend completes an empty assistant message as soon as a
+         * voice note is posted; the reply is the next message with text.
+         * Don't let the empty one stand as the reply: check_turn keeps
+         * waiting while every message so far is empty. */
+        m.empty = true;
+        ESP_LOGI(TAG, "message %s empty: waiting for a reply with text", m.id);
+    }
     if (m.len && m.tts == TTS_NONE) {
         m.tts = TTS_QUEUED;
     }
@@ -1492,6 +1505,16 @@ static void on_chat_ack(stream_t *s)
     emit(MUSE_HATCH_EV_SENT, nullptr);
 }
 
+/* Text-reply builds show replies on the face instead of fetching speech. */
+static bool text_replies(void)
+{
+#if defined(CONFIG_MUSE_TEXT_REPLIES) && CONFIG_MUSE_TEXT_REPLIES
+    return true;
+#else
+    return false;
+#endif
+}
+
 /* ---- Turn: speech ---- */
 
 static void start_tts(void)
@@ -1504,7 +1527,7 @@ static void start_tts(void)
         if (m.tts != TTS_QUEUED) {
             continue;
         }
-        if (!muse_settings_speaker_on()) {
+        if (!muse_settings_speaker_on() || text_replies()) {
             /* Nothing to fetch. Silence in place of the speech paces the
              * captions, and ends the turn, just as the speech would. */
             m.pcm_start = s_turn.pcm_out;
@@ -1512,12 +1535,17 @@ static void start_tts(void)
             m.tts = TTS_ACTIVE;
             s_turn.tts_msg = i;
             s_turn.silent = true;
-            ESP_LOGI(TAG, "speaker off: showing message %s (%u chars) without speech", m.id, (unsigned)m.len);
+            ESP_LOGI(TAG, "%s: showing message %s (%u chars) without speech",
+                     text_replies() ? "text replies" : "speaker off", m.id, (unsigned)m.len);
             show_reply_start(m);
             return;
         }
+        const char *raw_id = m.id;
+        if (!strncmp(raw_id, "assistant-msg-", 14)) {
+            raw_id += 14;   /* API may want the bare UUID */
+        }
         char path[300], id[3 * 80 + 1];
-        query_escape(m.id, id, sizeof(id));
+        query_escape(raw_id, id, sizeof(id));
         snprintf(path, sizeof(path), "%s?message_id=%s", s_tts_path ? "/voice/tts-stream" : "/api/voice/tts-stream",
                  id);
         int64_t sid = open_stream(K_TTS, "GET", path, nullptr, "audio/mpeg", nullptr, true);
@@ -1668,9 +1696,17 @@ static void check_turn(void)
         turn_done(false);
         return;
     }
-    if (!s_turn.nmsgs) {
-        /* A typed turn waits as long as the agent says it's working. */
-        if (t - s_turn.chat_us > (text ? TEXT_REPLY_TIMEOUT_US : REPLY_TIMEOUT_US) && !(text && s_turn.agent_busy)) {
+    bool have_reply = false;
+    for (int i = 0; i < s_turn.nmsgs; i++) {
+        if (!s_turn.msgs[i].empty) {
+            have_reply = true;
+            break;
+        }
+    }
+    if (!have_reply) {
+        /* A typed turn waits as long as the agent says it's working. A voice
+         * turn waits the same way while only empty messages have arrived. */
+        if (t - s_turn.chat_us > (text ? TEXT_REPLY_TIMEOUT_US : REPLY_TIMEOUT_US) && !s_turn.agent_busy) {
             turn_fail("NO REPLY FROM MUSE");
         }
         return;
@@ -1797,8 +1833,9 @@ static bool on_http_error(stream_t *s, const ApplicationResponseView &resp)
     memcpy(body, resp.body.data(), n);
     body[n] = '\0';
     ESP_LOGW(TAG, "stream %lld: HTTP %d %s", (long long)s->id, (int)resp.status, body);
-    if (s->kind == K_TTS && resp.status == 404 && s_tts_path == 0) {
-        /* Older VMs serve TTS without the /api prefix. */
+    if (s->kind == K_TTS && (resp.status == 404 || resp.status == 400) && s_tts_path == 0) {
+        /* Older VMs serve TTS without the /api prefix; some answer the
+         * /api path with 400 rather than 404. Try the bare path once. */
         int i = s->msg;
         close_stream(s);
         s_tts_path = 1;

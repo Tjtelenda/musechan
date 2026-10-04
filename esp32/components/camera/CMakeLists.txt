@@ -13,10 +13,17 @@
 # limitations under the License.
 
 set(srcs "camera.c" "sscma_proto.c" "camera_sscma.c")
+set(camera_ldfragments "")
+if(CONFIG_MUSE_STACKCHAN_CAMERA)
+    list(APPEND srcs "camera_gc0308.c")
+    # jpge's static tables go to PSRAM on this build (see linker.lf).
+    set(camera_ldfragments "linker.lf")
+endif()
 
 idf_component_register(
     SRCS ${srcs}
     INCLUDE_DIRS "."
     REQUIRES esp_common esp_driver_spi
     PRIV_REQUIRES esp_pm esp_timer mbedtls
+    LDFRAGMENTS ${camera_ldfragments}
 )

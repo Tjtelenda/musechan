@@ -440,6 +440,9 @@ static void on_canvas_clicked(lv_event_t *e)
 {
     (void)e;
     muse_state_make_happy();
+    /* Tapping the face also reads a waiting reply (on StackChan, that is
+     * what turns the base LEDs off). */
+    muse_state_set_reply_pending(false);
 }
 
 static const lv_font_t *font_pick(const lv_font_t *full, const lv_font_t *compact)

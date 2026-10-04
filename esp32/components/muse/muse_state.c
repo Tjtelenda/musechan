@@ -39,6 +39,7 @@ static volatile float s_progress;
 static volatile int64_t s_last_poke_us;
 static volatile int64_t s_happy_until_us;
 static volatile bool s_asleep;
+static volatile bool s_reply_pending;
 
 static portMUX_TYPE s_lock = portMUX_INITIALIZER_UNLOCKED;
 static char s_caption[MUSE_CAPTION_MAX];
@@ -237,4 +238,14 @@ float muse_state_happiness(void)
     }
     /* Ease out over the last 0.4 s. */
     return left > 0.4f ? 1.0f : left / 0.4f;
+}
+
+void muse_state_set_reply_pending(bool pending)
+{
+    s_reply_pending = pending;
+}
+
+bool muse_state_reply_pending(void)
+{
+    return s_reply_pending;
 }

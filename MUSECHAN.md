@@ -15,8 +15,9 @@ joins your Wi-Fi, and holds an encrypted session to your Muse.
 
 **Status:** hardware-verified on a StackChan unit. The CoreS3 display, touch,
 audio (AW88298 speaker amp + ES7210 mics), AXP2101 power key as the talk
-button, Wi-Fi pairing, `stackchan.face`, `stackchan.look`, and OTA firmware
-updates all work on the real robot.
+button, Wi-Fi pairing, `stackchan.face`, `stackchan.look`, optional text
+replies, the pending-reply base LEDs, and OTA firmware updates all work on
+the real robot.
 
 ## The two builds
 
@@ -52,6 +53,16 @@ reason about.
   happy and keeps Muse awake (with a little head movement), a pat on the
   head pets it, and putting the robot face-down for a moment puts it to
   sleep until it is picked back up.
+- **Text replies** (`CONFIG_MUSE_TEXT_REPLIES`, off by default). While the
+  upstream gadget speech pipeline is unfinished, push-to-talk turns can be
+  posted as text and replies shown on the face as captions instead of being
+  fetched as speech. Enable it in the build directory's `sdkconfig` until
+  spoken replies work, then turn it off again.
+- **Pending-reply base LEDs** (`CONFIG_MUSE_STACKCHAN_PENDING_LED`, off by
+  default, StackChan build only). While a reply has been shown and not yet
+  acknowledged, the twelve base LEDs flash amber, half a second on and half
+  a second off. Starting the next talk clears it; so do a tap on the face
+  and a double pat on the head.
 - **Outfit updates over Wi-Fi** (`outfit-ota/`). The avatar face is compiled
   into the firmware, so an outfit change is a redraw, a rebuild and an OTA
   update, sent the next time the gadget is online. See
@@ -114,12 +125,14 @@ renderer underneath those states; changing them is the OTA flow in
 
 ## Not yet
 
-- **Camera.** The CoreS3 has a GC0308 camera, but M5 does not publish its
-  data pins in any source we could find, so `camera.capture` is not offered
-  rather than guessed at.
+- **Camera capture is parked.** A GC0308 driver and `camera.capture`
+  command are included behind `CONFIG_MUSE_STACKCHAN_CAMERA` (off by
+  default), but captured frames are not usable yet. Do not enable it
+  expecting working photos.
 - **Servo calibration and feedback** (the BSP stores per-unit zeros in NVS;
   reads of present position are not implemented).
-- The base's RGB LEDs, IR and NFC.
+- General-purpose base RGB LED control (the base LEDs are currently used
+  only as the pending-reply indicator), IR and NFC.
 
 ## Credits and license
 

@@ -34,6 +34,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
 
 #include "bmi270.h"
 #include "muse_state.h"
@@ -73,6 +74,9 @@ static i2c_master_dev_handle_t s_ltr553;
 static bmi270_handle_t *s_imu;
 static volatile bool s_head_touched;
 static bool s_face_down;
+#if CONFIG_MUSE_STACKCHAN_PENDING_LED
+static int64_t s_last_pat_ms;   /* for the double head pat that reads a reply */
+#endif
 static int64_t s_last_react_ms;
 
 static int64_t now_ms(void)
@@ -333,6 +337,18 @@ static void pet_task(void *arg)
                 if (touched && !was_touched) {
                     ESP_LOGI(TAG, "head pat (channels %02x)", out);
                     react_pet(true);
+#if CONFIG_MUSE_STACKCHAN_PENDING_LED
+                    /* A second pat within 800 ms reads a waiting reply; a
+                     * single pat only makes Muse happy, as before. */
+                    const int64_t pat_ms = now_ms();
+                    if (pat_ms - s_last_pat_ms <= 800 && muse_state_reply_pending()) {
+                        muse_state_set_reply_pending(false);
+                        s_last_pat_ms = 0;
+                        ESP_LOGI(TAG, "double head pat: the reply from Muse is read");
+                    } else {
+                        s_last_pat_ms = pat_ms;
+                    }
+#endif
                 }
                 was_touched = touched;
             }

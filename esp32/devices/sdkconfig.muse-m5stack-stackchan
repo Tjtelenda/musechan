@@ -35,6 +35,11 @@ CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
 # As on the AIPI: static buffers in PSRAM, or BLE setup can't find 8 KB of
 # internal RAM for its task.
 CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y
+# The CoreS3 camera DMAs straight into its PSRAM frame buffer; with the
+# default internal DMA buffer, camera init asks for ~30 KB of contiguous
+# DMA RAM the Link session does not have. Only used when
+# CONFIG_MUSE_STACKCHAN_CAMERA is on.
+CONFIG_CAMERA_PSRAM_DMA=y
 # CONFIG_SPIRAM_IGNORE_NOTFOUND is not set
 CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=8
 CONFIG_LV_FONT_MONTSERRAT_12=y
@@ -52,3 +57,26 @@ CONFIG_USJ_NO_AUTO_LS_ON_CONNECTION=y
 # CONFIG_ESP_SLEEP_GPIO_RESET_WORKAROUND is not set
 CONFIG_PM_LIGHT_SLEEP_CALLBACKS=y
 CONFIG_PM_PROFILING=y
+
+# The CoreS3's only camera is the GC0308 (with CONFIG_MUSE_STACKCHAN_CAMERA
+# on). esp32-camera compiles every supported sensor's register tables into
+# internal RAM; the rest cost ~10 KB the Link session's transmit reserve
+# needs, so leave them out. These lines are inert in builds without the
+# camera component.
+# CONFIG_OV7670_SUPPORT is not set
+# CONFIG_OV7725_SUPPORT is not set
+# CONFIG_NT99141_SUPPORT is not set
+# CONFIG_OV2640_SUPPORT is not set
+# CONFIG_OV3660_SUPPORT is not set
+# CONFIG_OV3640_SUPPORT is not set
+# CONFIG_OV5640_SUPPORT is not set
+# CONFIG_GC2145_SUPPORT is not set
+# CONFIG_GC032A_SUPPORT is not set
+# CONFIG_BF3005_SUPPORT is not set
+# CONFIG_BF20A6_SUPPORT is not set
+# CONFIG_SC101IOT_SUPPORT is not set
+# CONFIG_SC030IOT_SUPPORT is not set
+# CONFIG_SC031GS_SUPPORT is not set
+# CONFIG_HM1055_SUPPORT is not set
+# CONFIG_HM0360_SUPPORT is not set
+# CONFIG_MEGA_CCM_SUPPORT is not set

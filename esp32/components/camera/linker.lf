@@ -1,0 +1,16 @@
+# esp32-camera's JPEG encoder (jpge, under frame2jpg) keeps ~8 KB of
+# static tables. On the MuseChan StackChan build that internal RAM is the
+# Link session's transmit reserve, so jpge's BSS goes to PSRAM instead;
+# the tables are only touched while a still is encoded. Needs
+# CONFIG_SPIRAM_ALLOW_BSS_SEG_EXTERNAL_MEMORY=y, set in the StackChan
+# device profile.
+[scheme:jpge_psram]
+entries:
+    bss -> extern_ram
+    common -> extern_ram
+
+[mapping:esp32_camera_jpge]
+archive: libespressif__esp32-camera.a
+entries:
+    if MUSE_STACKCHAN_CAMERA = y:
+        jpge (jpge_psram)

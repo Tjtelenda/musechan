@@ -1346,6 +1346,17 @@ static char *build_register_json(void) {
         cJSON_GetObjectItem(commands, "camera.capture"), "timeout_ms", 30000);
 #endif
 
+#if CONFIG_MUSE_STACKCHAN_CAMERA
+    add_command(commands, "camera.capture",
+                "Capture one still JPEG frame from the StackChan camera (the CoreS3's "
+                "built-in camera). The frame is returned as base64 only when this command "
+                "is explicitly invoked. Aim the head with stackchan.look between "
+                "captures to look around.",
+                nullptr, nullptr);
+    cJSON_AddNumberToObject(
+        cJSON_GetObjectItem(commands, "camera.capture"), "timeout_ms", 30000);
+#endif
+
 #if CONFIG_MUSE_BOARD_M5STACK_STACKCHAN
     cJSON *face_required = cJSON_CreateObject();
     cJSON_AddItemToObject(face_required, "face",

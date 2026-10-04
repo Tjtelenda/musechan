@@ -245,6 +245,7 @@ static void take(rec_stats_t *st, const int16_t *pcm)
 static bool record(bool barge_in, size_t *held, char *why, size_t cap)
 {
     muse_state_set_mode(MUSE_MODE_LISTENING);
+    muse_state_set_reply_pending(false);   /* talking again reads the last reply */
     muse_state_set_progress(0);
     s_rec_n = s_sent = 0;
     s_live = s_tried = false;
@@ -415,6 +416,13 @@ static bool hatch_reply(bool *delivered)
     muse_state_set_level(0);
     ESP_LOGI(TAG, "muse reply: %.2fs of audio, %.2fs total", (double)played / MUSE_AUDIO_RATE,
              (esp_timer_get_time() - t0) / 1e6);
+    if (replied) {
+        /* The reply was shown on the face (spoken, or left as text when
+         * there is no speech): it counts as waiting unread until the next
+         * talk, a tap on the face, or (on StackChan) a double head pat.
+         * Only StackChan's base LEDs read this. */
+        muse_state_set_reply_pending(true);
+    }
     if (!played) {
         /* No speech (TTS unavailable): leave the reply text up for a moment. */
         vTaskDelay(pdMS_TO_TICKS(2500));
