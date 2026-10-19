@@ -19,7 +19,12 @@ limitations under the License.
 > **MuseChan fork:** this tree adds the M5Stack StackChan (CoreS3) board,
 > head servos, pet reactions, live face/head device commands, and over-the-air
 > outfit updates, plus a CoreS3-only build with the robot harness compiled
-> out. Start with [MUSECHAN.md](MUSECHAN.md); if you are a Muse operating
+> out. MuseChan is the firmware running the StackChan on my desk: it gives
+> my Muse a face, a head that turns with the conversation, and reactions
+> that can be triggered live. It is in daily use and still evolving.
+> Maintained by [Trent Telenda](https://trenttelenda.com); the gadget SDK
+> below is Meta's, the StackChan work is mine.
+> Start with [MUSECHAN.md](MUSECHAN.md); if you are a Muse operating
 > one, [AGENT-RULES.md](AGENT-RULES.md) is your operating contract and
 > [outfit-ota/README.md](outfit-ota/README.md) is the outfit guide.
 
